@@ -246,7 +246,7 @@ pub fn migrate(
         &listener,
         &data.pickle_key,
         user_id.clone(),
-        device_id.clone(),
+        device_id,
         identity_keys,
         data.sessions,
         data.inbound_group_sessions,
@@ -298,7 +298,7 @@ pub fn migrate(
 fn save_changes(
     mut processed_steps: usize,
     total_steps: usize,
-    listener: &dyn Fn(usize, usize) -> (),
+    listener: &dyn Fn(usize, usize),
     runtime: Runtime,
     changes: Changes,
     store: &dyn CryptoStore,
@@ -353,10 +353,11 @@ pub fn migrate_sessions(
     save_changes(processed_steps, total_steps, &listener, runtime, changes, &store)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_sessions(
     mut processed_steps: usize,
     total_steps: usize,
-    listener: &dyn Fn(usize, usize) -> (),
+    listener: &dyn Fn(usize, usize),
     pickle_key: &[u8],
     user_id: Arc<UserId>,
     device_id: Arc<DeviceId>,
@@ -395,7 +396,7 @@ fn collect_sessions(
     for session in group_session_pickles {
         let pickle = vodozemac::megolm::InboundGroupSession::from_libolm_pickle(
             &session.pickle,
-            &pickle_key,
+            pickle_key,
         )?
         .pickle();
 
