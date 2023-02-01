@@ -88,7 +88,7 @@ pub struct SessionMigrationData {
     ed25519_key: String,
     /// The list of pickleds Olm Sessions.
     sessions: Vec<PickledSession>,
-    /// The list of Megolm inbound group sessions.
+    /// The list of pickled Megolm inbound group sessions.
     inbound_group_sessions: Vec<PickledInboundGroupSession>,
     /// The Olm pickle key that was used to pickle all the Olm objects.
     pickle_key: Vec<u8>,
@@ -311,7 +311,22 @@ fn save_changes(
     Ok(())
 }
 
-/// TODO
+/// Migrate the Olm Sessions and Megolm inbound group sessions from a libolm
+/// based setup to a vodozemac based setup in a Sled store.
+///
+/// # Arguments
+///
+/// * `data` - The `SessionMigrationData` data that should be migrated over to
+///   the Sled store.
+///
+/// * `path` - The path where the Sled store should be created.
+///
+/// * `passphrase` - The passphrase that should be used to encrypt the data at
+/// rest in the Sled store. **Warning**, if no passphrase is given, the store
+/// and all its data will remain unencrypted.
+///
+/// * `progress_listener` - A callback that can be used to introspect the
+/// progress of the migration.
 pub fn migrate_sessions(
     data: SessionMigrationData,
     path: &str,
