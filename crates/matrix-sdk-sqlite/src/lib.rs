@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(not(any(feature = "state-store", feature = "crypto-store")), allow(unused_imports))]
+
 #[cfg(feature = "crypto-store")]
 use async_trait::async_trait;
-use deadpool_sqlite::CreatePoolError;
-#[cfg(feature = "crypto-store")]
-use deadpool_sqlite::Object as SqliteConn;
+use deadpool_sqlite::{CreatePoolError, Object as SqliteConn};
 #[cfg(feature = "crypto-store")]
 use matrix_sdk_crypto::{store::Result, CryptoStoreError};
 #[cfg(feature = "crypto-store")]
@@ -28,6 +28,8 @@ use tracing::error;
 
 #[cfg(feature = "crypto-store")]
 mod crypto_store;
+#[cfg(feature = "state-store")]
+mod state_store;
 #[cfg(feature = "crypto-store")]
 mod utils;
 
@@ -50,7 +52,7 @@ pub enum OpenStoreError {
     Sqlite(#[from] CreatePoolError),
 }
 
-#[cfg(feature = "crypto-store")]
+#[cfg(any(feature = "state-store", feature = "crypto-store"))]
 async fn get_or_create_store_cipher(passphrase: &str, conn: &SqliteConn) -> Result<StoreCipher> {
     let encrypted_cipher = conn.get_kv("cipher").await?;
 
@@ -70,12 +72,12 @@ async fn get_or_create_store_cipher(passphrase: &str, conn: &SqliteConn) -> Resu
     Ok(cipher)
 }
 
-#[cfg(feature = "crypto-store")]
+#[cfg(any(feature = "state-store", feature = "crypto-store"))]
 trait SqliteConnectionExt {
     fn set_kv(&self, key: &str, value: &[u8]) -> rusqlite::Result<()>;
 }
 
-#[cfg(feature = "crypto-store")]
+#[cfg(any(feature = "state-store", feature = "crypto-store"))]
 impl SqliteConnectionExt for rusqlite::Connection {
     fn set_kv(&self, key: &str, value: &[u8]) -> rusqlite::Result<()> {
         self.execute(
@@ -86,7 +88,7 @@ impl SqliteConnectionExt for rusqlite::Connection {
     }
 }
 
-#[cfg(feature = "crypto-store")]
+#[cfg(any(feature = "state-store", feature = "crypto-store"))]
 #[async_trait]
 trait SqliteObjectStoreExt: SqliteObjectExt {
     async fn get_kv(&self, key: &str) -> Result<Option<Vec<u8>>> {
@@ -100,7 +102,7 @@ trait SqliteObjectStoreExt: SqliteObjectExt {
     async fn set_kv(&self, key: &str, value: Vec<u8>) -> Result<()>;
 }
 
-#[cfg(feature = "crypto-store")]
+#[cfg(any(feature = "state-store", feature = "crypto-store"))]
 #[async_trait]
 impl SqliteObjectStoreExt for deadpool_sqlite::Object {
     async fn set_kv(&self, key: &str, value: Vec<u8>) -> Result<()> {

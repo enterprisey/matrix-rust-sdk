@@ -8,13 +8,14 @@ license = "Apache-2.0"
 rust-version = { workspace = true }
 
 [features]
-default = []
+default = ["state-store"]
 
 crypto-store = [
     "dep:matrix-sdk-base",
     "dep:matrix-sdk-crypto",
     "matrix-sdk-base?/e2e-encryption",
 ]
+state-store = []
 
 [dependencies]
 async-stream = { workspace = true }
