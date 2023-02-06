@@ -390,11 +390,26 @@ interface OlmMachine {
     void update_tracked_users(sequence<string> users);
     [Throws=CryptoStoreError]
     Request? get_missing_sessions(sequence<string> users);
+
+    [Throws=CryptoStoreError]
+    EncryptionSettings? get_encryption_settings([ByRef] string room_id);
+
+    [Throws=CryptoStoreError]
+    void set_event_encryption_algorithm([ByRef] string room_id, EventEncryptionAlgorithm algorithm);
+
+    [Throws=CryptoStoreError]
+    void set_block_untrusted_devices_per_room([ByRef] string room_id, boolean block_untrusted_devices);
+
+    [Throws=CryptoStoreError]
+    void set_block_untrusted_devices_globally(boolean block_untrusted_devices);
+
+    [Throws=CryptoStoreError]
+    boolean is_blocking_untrusted_devices_globally();
+
     [Throws=CryptoStoreError]
     sequence<Request> share_room_key(
         [ByRef] string room_id,
-        sequence<string> users,
-        EncryptionSettings settings
+        sequence<string> users
     );
 
     [Throws=CryptoStoreError]

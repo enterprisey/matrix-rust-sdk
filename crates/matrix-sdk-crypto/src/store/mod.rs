@@ -60,8 +60,8 @@ use dashmap::DashSet;
 use matrix_sdk_common::{locks::Mutex, AsyncTraitDeps};
 pub use memorystore::MemoryStore;
 use ruma::{
-    events::secret::request::SecretName, DeviceId, IdParseError, OwnedDeviceId, OwnedUserId,
-    RoomId, TransactionId, UserId,
+    events::secret::request::SecretName, DeviceId, IdParseError, OwnedDeviceId, OwnedRoomId,
+    OwnedUserId, RoomId, TransactionId, UserId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Error as SerdeError;
@@ -81,7 +81,7 @@ use crate::{
     },
     utilities::encode,
     verification::VerificationMachine,
-    CrossSigningStatus,
+    CrossSigningStatus, EncryptionSettings,
 };
 
 /// A `CryptoStore` specific result type.
@@ -121,6 +121,8 @@ pub struct Changes {
     pub key_requests: Vec<GossipRequest>,
     pub identities: IdentityChanges,
     pub devices: DeviceChanges,
+    pub encryption_settings: HashMap<OwnedRoomId, EncryptionSettings>,
+    pub block_untrusted_devices_globally: Option<bool>,
 }
 
 /// A user for which we are tracking the list of devices.
@@ -920,6 +922,15 @@ pub trait CryptoStore: AsyncTraitDeps {
     /// * `request_id` - The unique request id that identifies this outgoing key
     /// request.
     async fn delete_outgoing_secret_requests(&self, request_id: &TransactionId) -> Result<()>;
+
+    /// TODO: docs
+    async fn load_encryption_settings(
+        &self,
+        room_id: &RoomId,
+    ) -> Result<Option<EncryptionSettings>>;
+
+    /// TODO: docs
+    async fn block_untrusted_devices_globally(&self) -> Result<bool>;
 }
 
 /// A type that can be type-erased into `Arc<dyn CryptoStore>`.

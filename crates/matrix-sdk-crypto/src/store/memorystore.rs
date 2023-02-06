@@ -30,7 +30,7 @@ use crate::{
     gossiping::{GossipRequest, SecretInfo},
     identities::{ReadOnlyDevice, ReadOnlyUserIdentities},
     olm::{OutboundGroupSession, PrivateCrossSigningIdentity},
-    TrackedUser,
+    EncryptionSettings, TrackedUser,
 };
 
 fn encode_key_info(info: &SecretInfo) -> String {
@@ -266,6 +266,17 @@ impl CryptoStore for MemoryStore {
 
     async fn load_backup_keys(&self) -> Result<BackupKeys> {
         Ok(BackupKeys::default())
+    }
+
+    async fn load_encryption_settings(
+        &self,
+        _room_id: &RoomId,
+    ) -> Result<Option<EncryptionSettings>> {
+        Ok(None)
+    }
+
+    async fn block_untrusted_devices_globally(&self) -> Result<bool> {
+        Ok(false)
     }
 }
 

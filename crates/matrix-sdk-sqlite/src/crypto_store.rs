@@ -30,8 +30,8 @@ use matrix_sdk_crypto::{
         caches::SessionStore, BackupKeys, Changes, CryptoStore, CryptoStoreError,
         Result as StoreResult, RoomKeyCounts,
     },
-    GossipRequest, ReadOnlyAccount, ReadOnlyDevice, ReadOnlyUserIdentities, SecretInfo,
-    TrackedUser,
+    EncryptionSettings, GossipRequest, ReadOnlyAccount, ReadOnlyDevice, ReadOnlyUserIdentities,
+    SecretInfo, TrackedUser,
 };
 use matrix_sdk_store_encryption::StoreCipher;
 use ruma::{DeviceId, OwnedDeviceId, RoomId, TransactionId, UserId};
@@ -241,7 +241,7 @@ impl SqliteCryptoStore {
     }
 }
 
-const DATABASE_VERSION: u8 = 1;
+const DATABASE_VERSION: u8 = 2;
 
 async fn run_migrations(conn: &SqliteConn) -> Result<(), CryptoStoreError> {
     let kv_exists = conn
@@ -287,6 +287,14 @@ async fn run_migrations(conn: &SqliteConn) -> Result<(), CryptoStoreError> {
             .map_err(CryptoStoreError::backend)?;
     }
 
+    if version < 2 {
+        conn.with_transaction(|txn| {
+            txn.execute_batch(include_str!("../migrations/002_encryption_settings.sql"))
+        })
+        .await
+        .map_err(CryptoStoreError::backend)?;
+    }
+
     conn.set_kv("version", vec![DATABASE_VERSION]).await.map_err(CryptoStoreError::backend)?;
 
     Ok(())
@@ -323,6 +331,8 @@ trait SqliteConnectionExt {
         sent_out: bool,
         data: &[u8],
     ) -> rusqlite::Result<()>;
+
+    fn set_encryption_settings(&self, room_id: &[u8], data: &[u8]) -> rusqlite::Result<()>;
 }
 
 impl SqliteConnectionExt for rusqlite::Connection {
@@ -411,6 +421,16 @@ impl SqliteConnectionExt for rusqlite::Connection {
             VALUES (?1, ?2, ?3)
             ON CONFLICT (request_id) DO UPDATE SET sent_out = ?2, data = ?3",
             (request_id, sent_out, data),
+        )?;
+        Ok(())
+    }
+
+    fn set_encryption_settings(&self, room_id: &[u8], data: &[u8]) -> rusqlite::Result<()> {
+        self.execute(
+            "INSERT INTO encryption_settings (room_id, data)
+            VALUES (?1, ?2)
+            ON CONFLICT (room_id) DO UPDATE SET data = ?2",
+            (room_id, data),
         )?;
         Ok(())
     }
@@ -580,6 +600,17 @@ trait SqliteObjectCryptoStoreExt: SqliteObjectExt {
     async fn delete_key_request(&self, request_id: Key) -> Result<()> {
         self.execute("DELETE FROM key_requests WHERE request_id = ?", (request_id,)).await?;
         Ok(())
+    }
+
+    async fn load_encryption_settings(&self, room_id: Key) -> Result<Option<Vec<u8>>> {
+        Ok(self
+            .query_row(
+                "SELECT data FROM encryption_settings WHERE room_id = ?",
+                (room_id,),
+                |row| row.get(0),
+            )
+            .await
+            .optional()?)
     }
 }
 
@@ -752,6 +783,17 @@ impl CryptoStore for SqliteCryptoStore {
                     let request_id = this.encode_key("key_requests", request.request_id.as_bytes());
                     let serialized_request = this.serialize_value(&request)?;
                     txn.set_key_request(&request_id, request.sent_out, &serialized_request)?;
+                }
+
+                for (room_id, settings) in changes.encryption_settings {
+                    let room_id = this.encode_key("encryption_settings", room_id.as_bytes());
+                    let serialized_settings = this.serialize_value(&settings)?;
+                    txn.set_encryption_settings(&room_id, &serialized_settings)?;
+                }
+
+                if let Some(block_devices) = &changes.block_untrusted_devices_globally {
+                    let serialized = this.serialize_value(block_devices)?;
+                    txn.set_kv("block_untrusted_devices_globally", &serialized)?;
                 }
 
                 Ok::<_, Error>(())
@@ -998,6 +1040,29 @@ impl CryptoStore for SqliteCryptoStore {
     async fn delete_outgoing_secret_requests(&self, request_id: &TransactionId) -> StoreResult<()> {
         let request_id = self.encode_key("key_requests", request_id.as_bytes());
         Ok(self.acquire().await?.delete_key_request(request_id).await?)
+    }
+
+    async fn load_encryption_settings(
+        &self,
+        room_id: &RoomId,
+    ) -> StoreResult<Option<EncryptionSettings>> {
+        let room_id = self.encode_key("encryption_settings", room_id.as_bytes());
+        let Some(settings) = self.acquire().await?.load_encryption_settings(room_id).await? else {
+            return Ok(None);
+        };
+        Ok(self.deserialize_value(&settings)?)
+    }
+
+    async fn block_untrusted_devices_globally(&self) -> StoreResult<bool> {
+        let block = self
+            .acquire()
+            .await?
+            .get_kv("block_untrusted_devices_globally")
+            .await?
+            .map(|value| self.deserialize_value(&value))
+            .transpose()?
+            .unwrap_or_default();
+        Ok(block)
     }
 }
 
