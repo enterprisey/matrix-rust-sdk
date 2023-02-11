@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["JoinedRoom","Updates to joined rooms."],["LeftRoom","Updates to left rooms."],["Rooms","Updates to rooms in a [`SyncResponse`]."],["SyncResponse","Internal representation of a `/sync` response."],["Timeline","Events in the room."],["UnreadNotificationsCount","Counts of unread notifications for a room."]]};

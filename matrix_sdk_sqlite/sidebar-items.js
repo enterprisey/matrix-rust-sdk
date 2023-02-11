@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["OpenStoreError","All the errors that can occur when opening a sled store."]]};
